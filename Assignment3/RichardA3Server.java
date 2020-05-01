@@ -94,7 +94,7 @@ public class RichardA3Server {
 
 			// Initialize
 			for (int i = 0; i < vertices.size(); i++) {
-				dist[i] = Integer.MAX_VALUE-10000;
+				dist[i] = Integer.MAX_VALUE - 10000;
 				pred[i] = null;
 			}
 			dist[vertices.indexOf(s)] = 0;
@@ -118,7 +118,7 @@ public class RichardA3Server {
 	}
 
 	// The driver method
-	public static void main(String[] args) throws IOException{
+	public static void main(String[] args) throws IOException {
 		Scanner fileIn = null;
 		LinkedList<Integer> destination = new LinkedList<Integer>();
 		LinkedList<Integer> nextHop = new LinkedList<Integer>();
@@ -165,19 +165,19 @@ public class RichardA3Server {
 		// Open TCP socket on port 6789
 		welcomeSocket = new ServerSocket(6789);
 
-		while(true) {
-			connectionSocket=welcomeSocket.accept();
+		while (true) {
+			connectionSocket = welcomeSocket.accept();
 
-			//Prepare for input from the client
+			// Prepare for input from the client
 			inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
 
-			//Read and parse a DVR message from the client
-			dvrMessage=inFromClient.readLine();
+			// Read and parse a DVR message from the client
+			dvrMessage = inFromClient.readLine();
 			howManyTimes = Character.getNumericValue(dvrMessage.charAt(0));
 			brokenMessage = dvrMessage.split("\\(");
-			for(int i=0;i<howManyTimes;i++) {
-				messageDestination = getDestinationFromMessage(brokenMessage[i+1]);
-				messageDistance = getDistanceFromMessage(brokenMessage[i+1]);
+			for (int i = 0; i < howManyTimes; i++) {
+				messageDestination = getDestinationFromMessage(brokenMessage[i + 1]);
+				messageDistance = getDistanceFromMessage(brokenMessage[i + 1]);
 
 				// Update the rows on the routing table that are affected by the DVR message
 				updateByMessage(destination, nextHop, distance, messageDestination, messageDistance);
@@ -189,7 +189,7 @@ public class RichardA3Server {
 				updateByGraph(destination, nextHop, distance, graph);
 			}
 			// Print the resulting routing table
-			System.out.println("\nUpdated Routing Table After Message "+dvrMessage+":");
+			System.out.println("\nUpdated Routing Table After Message \"" + dvrMessage + "\":");
 			printRoutingTable(destination, nextHop, distance);
 		}
 	}
@@ -202,12 +202,11 @@ public class RichardA3Server {
 		values = currLine.split("\\s");
 		for (String value : values)
 			if (!value.isBlank())
-				column.add(Integer.parseInt((value)));			
+				column.add(Integer.parseInt((value)));
 	}
 
 	// Print the routing table in a nicely formatted manner
-	public static void printRoutingTable(LinkedList<Integer> destination, LinkedList<Integer> nextHop,
-			LinkedList<Integer> distance) {
+	public static void printRoutingTable(LinkedList<Integer> destination, LinkedList<Integer> nextHop, LinkedList<Integer> distance) {
 		System.out.println(",-----------------------------------,");
 		System.out.println("| Destination   Next Hop   Distance |");
 		System.out.println("|===================================|");
@@ -256,14 +255,19 @@ public class RichardA3Server {
 				originalDistance = distance.get(i);
 				if (destination.get(i) == nextHop.get(i))
 					distance.set(i, messageDistance);
+				else if (nextHop.get(i) != 0 && distance.get(destination.indexOf(nextHop.get(i))) > messageDistance) {
+					distance.set(i, messageDistance);
+					nextHop.set(i, destination.get(i));
+				}
+				else if (originalDistance < messageDistance)
+					distance.set(i, messageDistance);
 			}
 		}
 		// Update any rows that contain messageDestination as the Next Hop and recursively repeat with destination as messageDestination
 		for (int i = 0; i < destination.size(); i++) {
 			if (nextHop.get(i) == messageDestination && destination.get(i) != messageDestination) {
 				distance.set(i, distance.get(i) - (originalDistance - messageDistance));
-				updateByMessage(destination, nextHop, distance, destination.get(i),
-						distance.get(i) - (originalDistance - messageDistance));
+				updateByMessage(destination, nextHop, distance, destination.get(i), distance.get(i) - (originalDistance - messageDistance));
 			}
 		}
 	}
@@ -304,8 +308,8 @@ public class RichardA3Server {
 
 	// Update columns of the routing table using the Bellman Ford algorithm and a graph
 	public static void updateByGraph(LinkedList<Integer> destination, LinkedList<Integer> nextHop, LinkedList<Integer> distance, WeightedGraph graph) {
-		int start=0;
-		int[] results=new int[2];
+		int start = 0;
+		int[] results = new int[2];
 
 		// Determine the start
 		for (int i = 0; i < distance.size(); i++) {
@@ -316,17 +320,17 @@ public class RichardA3Server {
 		}
 
 		// Determine the distance and predecessor to each destination from start
-		for(int i=0;i<destination.size();i++) {
-			if(destination.get(i)!=start) {
-				results=graph.bellmanFord(start, destination.get(i));
+		for (int i = 0; i < destination.size(); i++) {
+			if (destination.get(i) != start) {
+				results = graph.bellmanFord(start, destination.get(i));
 				nextHop.set(i, results[0]);
 				distance.set(i, results[1]);
 			}
 		}
 
 		// Correct all Next Hops that are equal to the start
-		for(int i=0;i<nextHop.size();i++)
-			if(nextHop.get(i)==start)
+		for (int i = 0; i < nextHop.size(); i++)
+			if (nextHop.get(i) == start)
 				nextHop.set(i, destination.get(i));
 	}
 }
