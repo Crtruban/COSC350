@@ -61,9 +61,6 @@ public class RichardA3Server {
 
 		// Add an edge to the graph
 		public void addEdge(int s, int e, int w) {
-			for (int i = 0; i < edges.size(); i++)
-				if (edges.get(i).getStart() == s && edges.get(i).getEnd() == e)
-					return;
 			edges.add(new Edge(s, e, w));
 			edges.add(new Edge(e, s, w));
 		}
@@ -78,6 +75,17 @@ public class RichardA3Server {
 			}
 		}
 
+		// Determine if a graph has an edge
+		public boolean hasEdge(int s, int e) {
+			for(Edge edge : edges) {
+				if(edge.getStart()==s && edge.getEnd()==e)
+					return true;
+				else if(edge.getStart()==e && edge.getEnd()==s)
+					return true;
+			}
+			return false;
+		}
+
 		// Update an edge already on the graph
 		public void updateEdge(int s, int e, int w) {
 			removeEdge(s, e, w);
@@ -86,11 +94,11 @@ public class RichardA3Server {
 		}
 
 		// Use the Bellman-Ford algorithm to find the shortest path
-		public int[] bellmanFord(int s, int e) {
+		public int[] bellmanFordModified(int s, int e) {
 			int[] dist = new int[vertices.size()];
 			Integer[] pred = new Integer[vertices.size()];
-			int distToStart;
-			int distToEnd;
+			int distToStart, distToEnd;
+			int currVertex;
 
 			// Initialize
 			for (int i = 0; i < vertices.size(); i++) {
@@ -111,8 +119,13 @@ public class RichardA3Server {
 				}
 			}
 
-			// Return the lowest distance and next hop
-			int[] toReturn = { pred[vertices.indexOf(e)], dist[vertices.indexOf(e)] };
+			//Determine next hop based on predecessor
+			currVertex=e;
+			while(pred[vertices.indexOf(currVertex)] != s)
+				currVertex=pred[vertices.indexOf(currVertex)];
+
+			// Return the next hop and lowest distance
+			int[] toReturn = { currVertex, dist[vertices.indexOf(e)] };
 			return toReturn;
 		}
 	}
@@ -129,7 +142,7 @@ public class RichardA3Server {
 		BufferedReader inFromClient;
 		String[] brokenMessage;
 		String dvrMessage;
-		int messageDestination, messageDistance, howManyTimes;
+		int messageDestination, messageDistance, howManyTimes, clientNode=0;
 
 		// Insert a Scanner into rt.txt
 		try {
@@ -165,7 +178,9 @@ public class RichardA3Server {
 		// Open TCP socket on port 6789
 		welcomeSocket = new ServerSocket(6789);
 
+		// Infinite loop to always allow connection for one client
 		while (true) {
+			// Accept a connection
 			connectionSocket = welcomeSocket.accept();
 
 			// Prepare for input from the client
@@ -175,18 +190,33 @@ public class RichardA3Server {
 			dvrMessage = inFromClient.readLine();
 			howManyTimes = Character.getNumericValue(dvrMessage.charAt(0));
 			brokenMessage = dvrMessage.split("\\(");
+
+			// Determine client node
+			for(int i=1;i<howManyTimes;i++)
+				if(getDistanceFromMessage(brokenMessage[i])==0)
+					clientNode=getDestinationFromMessage(brokenMessage[i]);
+
+			//For every pair in the message
 			for (int i = 0; i < howManyTimes; i++) {
+				// Determine the destination and distance of the current DVR pair
 				messageDestination = getDestinationFromMessage(brokenMessage[i + 1]);
 				messageDistance = getDistanceFromMessage(brokenMessage[i + 1]);
 
-				// Update the rows on the routing table that are affected by the DVR message
-				updateByMessage(destination, nextHop, distance, messageDestination, messageDistance);
+				// If the DVR pair is not the distance from the client to itself
+				if(messageDestination!=clientNode && messageDistance!=0) {
+					// Create a graph from the routing table
+					graph = graphFromTable(destination, nextHop, distance);
 
-				// Create a graph from the routing table
-				graph = graphFromTable(destination, nextHop, distance);
+					// Add an edge from client to destination with a weight of distance, removing any old edges
+					if(graph.hasEdge(clientNode, messageDestination)) {
+						graph.removeEdge(clientNode, messageDestination, messageDistance);
+						graph.removeEdge(messageDestination, clientNode, messageDistance);
+					}
+					graph.addEdge(clientNode, messageDestination, messageDistance);
 
-				// Update the the routing table using the Bellman Ford algorithm on the graph
-				updateByGraph(destination, nextHop, distance, graph);
+					// Update the the routing table using the Bellman Ford algorithm on the graph
+					updateTableByGraph(destination, nextHop, distance, graph);
+				}
 			}
 			// Print the resulting routing table
 			System.out.println("\nUpdated Routing Table After Message \"" + dvrMessage + "\":");
@@ -246,32 +276,6 @@ public class RichardA3Server {
 		return Integer.parseInt(working);
 	}
 
-	// Update columns of the routing table using a DVR message
-	public static void updateByMessage(LinkedList<Integer> destination, LinkedList<Integer> nextHop, LinkedList<Integer> distance, int messageDestination, int messageDistance) {
-		int originalDistance = 0;
-		// Update the row that contains messageDestination as the destination
-		for (int i = 0; i < destination.size(); i++) {
-			if (destination.get(i) == messageDestination) {
-				originalDistance = distance.get(i);
-				if (destination.get(i) == nextHop.get(i))
-					distance.set(i, messageDistance);
-				else if (nextHop.get(i) != 0 && distance.get(destination.indexOf(nextHop.get(i))) > messageDistance) {
-					distance.set(i, messageDistance);
-					nextHop.set(i, destination.get(i));
-				}
-				else if (originalDistance < messageDistance)
-					distance.set(i, messageDistance);
-			}
-		}
-		// Update any rows that contain messageDestination as the Next Hop and recursively repeat with destination as messageDestination
-		for (int i = 0; i < destination.size(); i++) {
-			if (nextHop.get(i) == messageDestination && destination.get(i) != messageDestination) {
-				distance.set(i, distance.get(i) - (originalDistance - messageDistance));
-				updateByMessage(destination, nextHop, distance, destination.get(i), distance.get(i) - (originalDistance - messageDistance));
-			}
-		}
-	}
-
 	// Create a undirected weighted graph using a routing table
 	public static WeightedGraph graphFromTable(LinkedList<Integer> destination, LinkedList<Integer> nextHop, LinkedList<Integer> distance) {
 		WeightedGraph graph = new WeightedGraph();
@@ -283,12 +287,9 @@ public class RichardA3Server {
 			graph.addVertex(v);
 
 		// Determine the start
-		for (int i = 0; i < distance.size(); i++) {
-			if (distance.get(i) == 0) {
+		for (int i = 0; i < distance.size(); i++)
+			if (distance.get(i) == 0)
 				start = destination.get(i);
-				break;
-			}
-		}
 
 		// Create edges that connect directly to start
 		for (int i = 0; i < destination.size(); i++)
@@ -307,30 +308,22 @@ public class RichardA3Server {
 	}
 
 	// Update columns of the routing table using the Bellman Ford algorithm and a graph
-	public static void updateByGraph(LinkedList<Integer> destination, LinkedList<Integer> nextHop, LinkedList<Integer> distance, WeightedGraph graph) {
+	public static void updateTableByGraph(LinkedList<Integer> destination, LinkedList<Integer> nextHop, LinkedList<Integer> distance, WeightedGraph graph) {
 		int start = 0;
 		int[] results = new int[2];
 
 		// Determine the start
-		for (int i = 0; i < distance.size(); i++) {
-			if (distance.get(i) == 0) {
+		for (int i = 0; i < distance.size(); i++)
+			if (distance.get(i) == 0)
 				start = destination.get(i);
-				break;
-			}
-		}
 
-		// Determine the distance and predecessor to each destination from start
+		// Determine the distance and next hop to each destination from start
 		for (int i = 0; i < destination.size(); i++) {
 			if (destination.get(i) != start) {
-				results = graph.bellmanFord(start, destination.get(i));
+				results = graph.bellmanFordModified(start, destination.get(i));
 				nextHop.set(i, results[0]);
 				distance.set(i, results[1]);
 			}
 		}
-
-		// Correct all Next Hops that are equal to the start
-		for (int i = 0; i < nextHop.size(); i++)
-			if (nextHop.get(i) == start)
-				nextHop.set(i, destination.get(i));
 	}
 }
