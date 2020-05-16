@@ -3,7 +3,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.text.DecimalFormat;
-
+import java.time.LocalTime;
 
 /**
  * NtpClient - an NTP client for Java.  This program connects to an NTP server
@@ -39,9 +39,10 @@ public class SntpClient
 		
 		//1.2.1
 		double startTime = System.currentTimeMillis();
+		LocalTime now = LocalTime.now();
 		serverName = "localHost";
 		// Process command-line args
-	/*	if(args.length==1)
+		/*if(args.length==1)
 		{
 			serverName = args[0];
 		}
@@ -66,7 +67,7 @@ public class SntpClient
 		
 		socket.send(packet);
 		//1.2.3
-		int bytes = buf.length;
+		int bits = buf.length;
 		
 		// Get response
 		System.out.println("NTP request sent, waiting for response...\n");
@@ -74,8 +75,8 @@ public class SntpClient
 		socket.receive(packet);
 		
 		// Immediately record the incoming timestamp
-		double destinationTimestamp =
-			(System.currentTimeMillis()/1000.0) + 2208988800.0;
+		double destinationTimestamp =	(System.currentTimeMillis()/1000.0) + 2208988800.0;
+		//double destinationTimestamp =	(System.currentTimeMillis()-220898800)/1000;
 		
 		
 		// Process response
@@ -103,14 +104,15 @@ public class SntpClient
 		System.out.println("Local clock offset: " +
 			new DecimalFormat("0.00").format(localClockOffset*1000) + " ms");
 		//1.2.4
-		System.out.println("Number of Bytes: "+bytes);
-		System.out.println("Local Time: "+startTime);
+		System.out.println("Number of bytes: "+bits);
 		//1.2.5
-		System.out.println("Delay: "+(startTime-destinationTimestamp));
+		destinationTimestamp = (destinationTimestamp - 2208988800.0) * 1000;
+		double delay = destinationTimestamp-startTime;
+		System.out.println("Delay: "+(delay)+" ms");
 		//1.2.6
-		System.out.println("Data Rate: "+bytes/(startTime-destinationTimestamp));
-		
+		System.out.println("Data Rate: "+new DecimalFormat("0.00").format((bits*8)/(delay*1000))+" bits/sec");
 		socket.close();
+		
 	}
 	
 	
