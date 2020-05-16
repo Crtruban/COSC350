@@ -41,7 +41,7 @@ public class SntpClient
 		double startTime = System.currentTimeMillis();
 		serverName = "localHost";
 		// Process command-line args
-		if(args.length==1)
+	/*	if(args.length==1)
 		{
 			serverName = args[0];
 		}
@@ -49,7 +49,7 @@ public class SntpClient
 		{
 			printUsage();
 			return;
-		}
+		}*/
 		
 		// Send request
 		DatagramSocket socket = new DatagramSocket();
