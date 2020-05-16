@@ -34,6 +34,7 @@ public class UDPServerThreads {
       System.out.println("after send in thread "+"IPAddress="+address+" port="+port);
       long cendtime = System.currentTimeMillis();
       System.out.println("time="+(cendtime-cstarttime));
+       csocket.close();
      }
      catch (IOException e) {}
     }
@@ -68,6 +69,7 @@ public class UDPServerThreads {
       assignment2.nonStatic(udpmessage, address, port);
       count++;
       System.out.println("after start thread"+count);    
+       serverSocket.close();
      }
    }
    catch (IOException e) {} 
