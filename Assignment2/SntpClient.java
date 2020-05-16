@@ -106,9 +106,10 @@ public class SntpClient
 		System.out.println("Number of Bytes: "+bytes);
 		System.out.println("Local Time: "+startTime);
 		//1.2.5
-		System.out.println("Delay: "+(destinationTimestamp-startTime));
+		System.out.println("Delay: "+(startTime-destinationTimestamp));
 		//1.2.6
-		System.out.println("Data Rate: "+bytes/(destinationTimestamp-startTime));
+		System.out.println("Data Rate: "+bytes/(startTime-destinationTimestamp));
+		
 		socket.close();
 	}
 	
